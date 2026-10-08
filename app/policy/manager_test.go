@@ -43,3 +43,26 @@ func TestPolicy(t *testing.T) {
 		}
 	}
 }
+
+func TestPolicySpeed(t *testing.T) {
+	manager, err := New(context.Background(), &Config{
+		Level: map[uint32]*Policy{
+			50: {Speed: &Policy_Speed{UplinkMbps: 50, DownlinkMbps: 40}},
+			0:  {Stats: &Policy_Stats{UserUplink: true}},
+		},
+	})
+	common.Must(err)
+
+	if s := manager.ForLevel(50).Speed; s.UplinkMbps != 50 || s.DownlinkMbps != 40 {
+		t.Errorf("level 50 speed = %+v", s)
+	}
+	if s := manager.ForLevel(0).Speed; s.UplinkMbps != 0 || s.DownlinkMbps != 0 {
+		t.Errorf("level 0 must be unlimited, got %+v", s)
+	}
+	if s := manager.ForLevel(7).Speed; s.UplinkMbps != 0 || s.DownlinkMbps != 0 {
+		t.Errorf("an unknown level must be unlimited, got %+v", s)
+	}
+	if !manager.ForLevel(0).Stats.UserUplink {
+		t.Error("stats flags were lost")
+	}
+}

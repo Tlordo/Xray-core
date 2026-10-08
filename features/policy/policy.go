@@ -56,11 +56,21 @@ type System struct {
 	Buffer Buffer
 }
 
+// Speed contains per-user bandwidth limits, in megabits per second.
+// Zero means unlimited. The limit is shared by all connections of one user.
+type Speed struct {
+	// Limit for traffic sent by the user (client to server).
+	UplinkMbps uint32
+	// Limit for traffic received by the user (server to client).
+	DownlinkMbps uint32
+}
+
 // Session is session based settings for controlling Xray requests. It contains various settings (or limits) that may differ for different users in the context.
 type Session struct {
 	Timeouts Timeout // Timeout settings
 	Stats    Stats
 	Buffer   Buffer
+	Speed    Speed
 }
 
 // Manager is a feature that provides Policy for the given user by its id or level.

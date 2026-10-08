@@ -30,9 +30,17 @@ message Policy {
     int32 connection = 1;
   }
 
+  // Speed is the per-user bandwidth limit, in megabits per second. Zero means unlimited.
+  // The limit is shared by all connections of one user (identified by email).
+  message Speed {
+    uint32 uplink_mbps = 1;
+    uint32 downlink_mbps = 2;
+  }
+
   Timeout timeout = 1;
   Stats stats = 2;
   Buffer buffer = 3;
+  Speed speed = 4;
 }
 
 message SystemPolicy {

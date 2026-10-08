@@ -182,6 +182,10 @@ func (d *DefaultDispatcher) getLink(ctx context.Context) (*transport.Link, *tran
 		if p.Stats.UserOnline {
 			trackOnlineIP(ctx, d.stats, user.Email, sessionInbound.Source.Address.String())
 		}
+
+		// Throttle outside the counters, so they follow what really passes.
+		inboundLink.Writer = newSpeedWriter(ctx, user.Email, p.Speed, true, inboundLink.Writer)
+		outboundLink.Writer = newSpeedWriter(ctx, user.Email, p.Speed, false, outboundLink.Writer)
 	}
 
 	return inboundLink, outboundLink
@@ -216,6 +220,10 @@ func WrapLink(ctx context.Context, policyManager policy.Manager, statsManager st
 		if p.Stats.UserOnline {
 			trackOnlineIP(ctx, statsManager, user.Email, sessionInbound.Source.Address.String())
 		}
+
+		// The uplink is read from link.Reader and the downlink is written to link.Writer.
+		link.Reader = newSpeedReader(ctx, user.Email, p.Speed, link.Reader.(buf.TimeoutReader))
+		link.Writer = newSpeedWriter(ctx, user.Email, p.Speed, false, link.Writer)
 	}
 
 	return link

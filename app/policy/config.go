@@ -58,6 +58,12 @@ func (p *Policy) overrideWith(another *Policy) {
 			Connection: another.Buffer.Connection,
 		}
 	}
+	if another.Speed != nil {
+		p.Speed = &Policy_Speed{
+			UplinkMbps:   another.Speed.UplinkMbps,
+			DownlinkMbps: another.Speed.DownlinkMbps,
+		}
+	}
 }
 
 // ToCorePolicy converts this Policy to policy.Session.
@@ -77,6 +83,10 @@ func (p *Policy) ToCorePolicy() policy.Session {
 	}
 	if p.Buffer != nil {
 		cp.Buffer.PerConnection = p.Buffer.Connection
+	}
+	if p.Speed != nil {
+		cp.Speed.UplinkMbps = p.Speed.UplinkMbps
+		cp.Speed.DownlinkMbps = p.Speed.DownlinkMbps
 	}
 	return cp
 }

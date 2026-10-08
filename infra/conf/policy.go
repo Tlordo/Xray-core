@@ -13,6 +13,10 @@ type Policy struct {
 	StatsUserDownlink bool    `json:"statsUserDownlink"`
 	StatsUserOnline   bool    `json:"statsUserOnline"`
 	BufferSize        *int32  `json:"bufferSize"`
+	// UplinkMbps and DownlinkMbps limit the speed of every user of this level,
+	// in megabits per second. 0 (or absent) means unlimited.
+	UplinkMbps   uint32 `json:"uplinkMbps"`
+	DownlinkMbps uint32 `json:"downlinkMbps"`
 }
 
 func (t *Policy) Build() (*policy.Policy, error) {
@@ -46,6 +50,13 @@ func (t *Policy) Build() (*policy.Policy, error) {
 		}
 		p.Buffer = &policy.Policy_Buffer{
 			Connection: bs,
+		}
+	}
+
+	if t.UplinkMbps > 0 || t.DownlinkMbps > 0 {
+		p.Speed = &policy.Policy_Speed{
+			UplinkMbps:   t.UplinkMbps,
+			DownlinkMbps: t.DownlinkMbps,
 		}
 	}
 

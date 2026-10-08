@@ -767,9 +767,14 @@ func CopyRawConnIfExist(ctx context.Context, readerConn net.Conn, writerConn net
 				splice = false
 			}
 		}
+		// A per-user speed limit cannot be applied to a kernel copy.
+		counterWriter, speedLimited := dispatcher.UnwrapSpeedWriter(writer)
+		if speedLimited {
+			splice = false
+		}
 		if splice {
 			errors.LogDebug(ctx, "CopyRawConn splice")
-			statWriter, _ := writer.(*dispatcher.SizeStatWriter)
+			statWriter, _ := counterWriter.(*dispatcher.SizeStatWriter)
 			//runtime.Gosched() // necessary
 			timer.SetTimeout(24 * time.Hour) // prevent leak, just in case
 			if inTimer != nil {

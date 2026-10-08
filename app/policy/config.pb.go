@@ -70,6 +70,7 @@ type Policy struct {
 	Timeout       *Policy_Timeout        `protobuf:"bytes,1,opt,name=timeout,proto3" json:"timeout,omitempty"`
 	Stats         *Policy_Stats          `protobuf:"bytes,2,opt,name=stats,proto3" json:"stats,omitempty"`
 	Buffer        *Policy_Buffer         `protobuf:"bytes,3,opt,name=buffer,proto3" json:"buffer,omitempty"`
+	Speed         *Policy_Speed          `protobuf:"bytes,4,opt,name=speed,proto3" json:"speed,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -121,6 +122,13 @@ func (x *Policy) GetStats() *Policy_Stats {
 func (x *Policy) GetBuffer() *Policy_Buffer {
 	if x != nil {
 		return x.Buffer
+	}
+	return nil
+}
+
+func (x *Policy) GetSpeed() *Policy_Speed {
+	if x != nil {
+		return x.Speed
 	}
 	return nil
 }
@@ -395,6 +403,58 @@ func (x *Policy_Buffer) GetConnection() int32 {
 	return 0
 }
 
+type Policy_Speed struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	UplinkMbps    uint32                 `protobuf:"varint,1,opt,name=uplink_mbps,json=uplinkMbps,proto3" json:"uplink_mbps,omitempty"`
+	DownlinkMbps  uint32                 `protobuf:"varint,2,opt,name=downlink_mbps,json=downlinkMbps,proto3" json:"downlink_mbps,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Policy_Speed) Reset() {
+	*x = Policy_Speed{}
+	mi := &file_app_policy_config_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Policy_Speed) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Policy_Speed) ProtoMessage() {}
+
+func (x *Policy_Speed) ProtoReflect() protoreflect.Message {
+	mi := &file_app_policy_config_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Policy_Speed.ProtoReflect.Descriptor instead.
+func (*Policy_Speed) Descriptor() ([]byte, []int) {
+	return file_app_policy_config_proto_rawDescGZIP(), []int{1, 3}
+}
+
+func (x *Policy_Speed) GetUplinkMbps() uint32 {
+	if x != nil {
+		return x.UplinkMbps
+	}
+	return 0
+}
+
+func (x *Policy_Speed) GetDownlinkMbps() uint32 {
+	if x != nil {
+		return x.DownlinkMbps
+	}
+	return 0
+}
+
 type SystemPolicy_Stats struct {
 	state            protoimpl.MessageState `protogen:"open.v1"`
 	InboundUplink    bool                   `protobuf:"varint,1,opt,name=inbound_uplink,json=inboundUplink,proto3" json:"inbound_uplink,omitempty"`
@@ -407,7 +467,7 @@ type SystemPolicy_Stats struct {
 
 func (x *SystemPolicy_Stats) Reset() {
 	*x = SystemPolicy_Stats{}
-	mi := &file_app_policy_config_proto_msgTypes[7]
+	mi := &file_app_policy_config_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -419,7 +479,7 @@ func (x *SystemPolicy_Stats) String() string {
 func (*SystemPolicy_Stats) ProtoMessage() {}
 
 func (x *SystemPolicy_Stats) ProtoReflect() protoreflect.Message {
-	mi := &file_app_policy_config_proto_msgTypes[7]
+	mi := &file_app_policy_config_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -469,11 +529,12 @@ const file_app_policy_config_proto_rawDesc = "" +
 	"\n" +
 	"\x17app/policy/config.proto\x12\x0fxray.app.policy\"\x1e\n" +
 	"\x06Second\x12\x14\n" +
-	"\x05value\x18\x01 \x01(\rR\x05value\"\xc7\x04\n" +
+	"\x05value\x18\x01 \x01(\rR\x05value\"\xcb\x05\n" +
 	"\x06Policy\x129\n" +
 	"\atimeout\x18\x01 \x01(\v2\x1f.xray.app.policy.Policy.TimeoutR\atimeout\x123\n" +
 	"\x05stats\x18\x02 \x01(\v2\x1d.xray.app.policy.Policy.StatsR\x05stats\x126\n" +
-	"\x06buffer\x18\x03 \x01(\v2\x1e.xray.app.policy.Policy.BufferR\x06buffer\x1a\xfa\x01\n" +
+	"\x06buffer\x18\x03 \x01(\v2\x1e.xray.app.policy.Policy.BufferR\x06buffer\x123\n" +
+	"\x05speed\x18\x04 \x01(\v2\x1d.xray.app.policy.Policy.SpeedR\x05speed\x1a\xfa\x01\n" +
 	"\aTimeout\x125\n" +
 	"\thandshake\x18\x01 \x01(\v2\x17.xray.app.policy.SecondR\thandshake\x12@\n" +
 	"\x0fconnection_idle\x18\x02 \x01(\v2\x17.xray.app.policy.SecondR\x0econnectionIdle\x128\n" +
@@ -489,7 +550,11 @@ const file_app_policy_config_proto_rawDesc = "" +
 	"\x06Buffer\x12\x1e\n" +
 	"\n" +
 	"connection\x18\x01 \x01(\x05R\n" +
-	"connection\"\xfb\x01\n" +
+	"connection\x1aM\n" +
+	"\x05Speed\x12\x1f\n" +
+	"\vuplink_mbps\x18\x01 \x01(\rR\n" +
+	"uplinkMbps\x12#\n" +
+	"\rdownlink_mbps\x18\x02 \x01(\rR\fdownlinkMbps\"\xfb\x01\n" +
 	"\fSystemPolicy\x129\n" +
 	"\x05stats\x18\x01 \x01(\v2#.xray.app.policy.SystemPolicy.StatsR\x05stats\x1a\xaf\x01\n" +
 	"\x05Stats\x12%\n" +
@@ -518,7 +583,7 @@ func file_app_policy_config_proto_rawDescGZIP() []byte {
 	return file_app_policy_config_proto_rawDescData
 }
 
-var file_app_policy_config_proto_msgTypes = make([]protoimpl.MessageInfo, 9)
+var file_app_policy_config_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
 var file_app_policy_config_proto_goTypes = []any{
 	(*Second)(nil),             // 0: xray.app.policy.Second
 	(*Policy)(nil),             // 1: xray.app.policy.Policy
@@ -527,26 +592,28 @@ var file_app_policy_config_proto_goTypes = []any{
 	(*Policy_Timeout)(nil),     // 4: xray.app.policy.Policy.Timeout
 	(*Policy_Stats)(nil),       // 5: xray.app.policy.Policy.Stats
 	(*Policy_Buffer)(nil),      // 6: xray.app.policy.Policy.Buffer
-	(*SystemPolicy_Stats)(nil), // 7: xray.app.policy.SystemPolicy.Stats
-	nil,                        // 8: xray.app.policy.Config.LevelEntry
+	(*Policy_Speed)(nil),       // 7: xray.app.policy.Policy.Speed
+	(*SystemPolicy_Stats)(nil), // 8: xray.app.policy.SystemPolicy.Stats
+	nil,                        // 9: xray.app.policy.Config.LevelEntry
 }
 var file_app_policy_config_proto_depIdxs = []int32{
 	4,  // 0: xray.app.policy.Policy.timeout:type_name -> xray.app.policy.Policy.Timeout
 	5,  // 1: xray.app.policy.Policy.stats:type_name -> xray.app.policy.Policy.Stats
 	6,  // 2: xray.app.policy.Policy.buffer:type_name -> xray.app.policy.Policy.Buffer
-	7,  // 3: xray.app.policy.SystemPolicy.stats:type_name -> xray.app.policy.SystemPolicy.Stats
-	8,  // 4: xray.app.policy.Config.level:type_name -> xray.app.policy.Config.LevelEntry
-	2,  // 5: xray.app.policy.Config.system:type_name -> xray.app.policy.SystemPolicy
-	0,  // 6: xray.app.policy.Policy.Timeout.handshake:type_name -> xray.app.policy.Second
-	0,  // 7: xray.app.policy.Policy.Timeout.connection_idle:type_name -> xray.app.policy.Second
-	0,  // 8: xray.app.policy.Policy.Timeout.uplink_only:type_name -> xray.app.policy.Second
-	0,  // 9: xray.app.policy.Policy.Timeout.downlink_only:type_name -> xray.app.policy.Second
-	1,  // 10: xray.app.policy.Config.LevelEntry.value:type_name -> xray.app.policy.Policy
-	11, // [11:11] is the sub-list for method output_type
-	11, // [11:11] is the sub-list for method input_type
-	11, // [11:11] is the sub-list for extension type_name
-	11, // [11:11] is the sub-list for extension extendee
-	0,  // [0:11] is the sub-list for field type_name
+	7,  // 3: xray.app.policy.Policy.speed:type_name -> xray.app.policy.Policy.Speed
+	8,  // 4: xray.app.policy.SystemPolicy.stats:type_name -> xray.app.policy.SystemPolicy.Stats
+	9,  // 5: xray.app.policy.Config.level:type_name -> xray.app.policy.Config.LevelEntry
+	2,  // 6: xray.app.policy.Config.system:type_name -> xray.app.policy.SystemPolicy
+	0,  // 7: xray.app.policy.Policy.Timeout.handshake:type_name -> xray.app.policy.Second
+	0,  // 8: xray.app.policy.Policy.Timeout.connection_idle:type_name -> xray.app.policy.Second
+	0,  // 9: xray.app.policy.Policy.Timeout.uplink_only:type_name -> xray.app.policy.Second
+	0,  // 10: xray.app.policy.Policy.Timeout.downlink_only:type_name -> xray.app.policy.Second
+	1,  // 11: xray.app.policy.Config.LevelEntry.value:type_name -> xray.app.policy.Policy
+	12, // [12:12] is the sub-list for method output_type
+	12, // [12:12] is the sub-list for method input_type
+	12, // [12:12] is the sub-list for extension type_name
+	12, // [12:12] is the sub-list for extension extendee
+	0,  // [0:12] is the sub-list for field type_name
 }
 
 func init() { file_app_policy_config_proto_init() }
@@ -560,7 +627,7 @@ func file_app_policy_config_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_app_policy_config_proto_rawDesc), len(file_app_policy_config_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   9,
+			NumMessages:   10,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
