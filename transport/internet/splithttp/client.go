@@ -9,6 +9,7 @@ import (
 	"net/http/httptrace"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/apernet/quic-go/http3"
 	"github.com/xtls/xray-core/common"
@@ -91,6 +92,10 @@ func (c *DefaultDialerClient) OpenStream(ctx context.Context, url string, sessio
 			wrc.Close()
 			return
 		}
+		if resp.Header.Get(FlushPadResponseHeader) != "" && req.Header.Get(FlushPadRequestHeader) != "" {
+			wrc.(*WaitReadCloser).Set(newFlushPadReader(resp.Body))
+			return
+		}
 		wrc.(*WaitReadCloser).Set(resp.Body)
 	}()
 
@@ -143,6 +148,10 @@ func (c *DefaultDialerClient) PostPacket(ctx context.Context, url string, sessio
 				uploadConn = h1UploadConn
 			} else {
 				h1UploadConn = uploadConn.(*H1Conn)
+				if h1UploadConn.stale(time.Now()) {
+					h1UploadConn.retire()
+					continue
+				}
 
 				// TODO: Replace 0 here with a config value later
 				// Or add some other condition for optimization purposes
@@ -166,6 +175,8 @@ func (c *DefaultDialerClient) PostPacket(ctx context.Context, url string, sessio
 			// failed writes to a pooled connection are normal when
 			// the connection has been closed in the meantime.
 			if err == nil {
+				h1UploadConn.lastUsed = time.Now()
+				h1UploadConn.requests++
 				break
 			} else if newConnection {
 				return err
