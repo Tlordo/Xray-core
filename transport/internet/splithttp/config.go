@@ -7,6 +7,7 @@ import (
 	"io"
 	"math/rand/v2"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/xtls/xray-core/common"
@@ -56,6 +57,9 @@ func (c *Config) GetNormalizedQuery() string {
 func (c *Config) GetRequestHeader() http.Header {
 	header := http.Header{}
 	for k, v := range c.Headers {
+		if strings.EqualFold(k, FlushPadConfigHeader) {
+			continue // a setting of this client, see flushpad.go
+		}
 		header.Add(k, v)
 	}
 	utils.TryDefaultHeadersWith(header, "fetch")
@@ -322,6 +326,10 @@ func (c *Config) FillStreamRequest(request *http.Request, sessionId string, seqS
 
 	c.ApplyXPaddingToRequest(request, config)
 	c.ApplyMetaToRequest(request, sessionId, "")
+
+	if value, ok := c.flushPadSetting(); ok && request.Body == nil { // stream-down
+		request.Header.Set(FlushPadRequestHeader, strconv.Itoa(int(flushPadDelay(value).Milliseconds())))
+	}
 
 	if request.Body != nil && !c.NoGRPCHeader { // stream-up/one
 		request.Header.Set("Content-Type", "application/grpc")

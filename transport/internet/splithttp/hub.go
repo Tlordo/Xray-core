@@ -366,6 +366,11 @@ func (h *requestHandler) ServeHTTP(writer http.ResponseWriter, request *http.Req
 			writer.Header().Set("Content-Type", "text/event-stream")
 		}
 
+		flushPad, framed := wantsFlushPad(request)
+		if framed {
+			writer.Header().Set(FlushPadResponseHeader, "1")
+		}
+
 		writer.WriteHeader(http.StatusOK)
 		writer.(http.Flusher).Flush()
 
@@ -373,6 +378,7 @@ func (h *requestHandler) ServeHTTP(writer http.ResponseWriter, request *http.Req
 			Instance:       done.New(),
 			Reader:         request.Body,
 			ResponseWriter: writer,
+			flushPad:       flushPad,
 		}
 		localAddr := h.localAddr
 		if la, ok := request.Context().Value(http.LocalAddrContextKey).(net.Addr); ok && la != nil {
@@ -408,6 +414,12 @@ type httpServerConn struct {
 	*done.Instance
 	io.Reader // no need to Close request.Body
 	http.ResponseWriter
+
+	// flushPad is the quiet time after which padding follows the data; 0 leaves the stream unframed.
+	flushPad  time.Duration
+	padTimer  *time.Timer
+	padsLeft  int
+	lastWrite time.Time
 }
 
 func (c *httpServerConn) Write(b []byte) (int, error) {
@@ -416,16 +428,65 @@ func (c *httpServerConn) Write(b []byte) (int, error) {
 	if c.Done() {
 		return 0, io.ErrClosedPipe
 	}
-	n, err := c.ResponseWriter.Write(b)
-	if err == nil {
-		c.ResponseWriter.(http.Flusher).Flush()
+	if c.flushPad == 0 {
+		n, err := c.ResponseWriter.Write(b)
+		if err == nil {
+			c.ResponseWriter.(http.Flusher).Flush()
+		}
+		return n, err
 	}
-	return n, err
+	// One Write call per data write keeps the frames in one HTTP chunk.
+	if _, err := c.ResponseWriter.Write(appendFlushFrames(make([]byte, 0, len(b)+2*(len(b)/flushPadMaxFrame+1)), b)); err != nil {
+		return 0, err
+	}
+	c.ResponseWriter.(http.Flusher).Flush()
+	c.lastWrite = time.Now()
+	c.padsLeft = flushPadCount
+	c.armPad(c.flushPad)
+	return len(b), nil
+}
+
+// armPad schedules the next padding frame. The caller holds the lock.
+func (c *httpServerConn) armPad(after time.Duration) {
+	if c.padTimer == nil {
+		c.padTimer = time.AfterFunc(after, c.sendPad)
+		return
+	}
+	c.padTimer.Reset(after)
+}
+
+// sendPad writes a padding frame if the stream has been quiet since the last data.
+func (c *httpServerConn) sendPad() {
+	c.Lock()
+	defer c.Unlock()
+	if c.Done() || c.padsLeft == 0 {
+		return
+	}
+	// The timer may fire for an older write: wait out the rest of the quiet time.
+	wait := c.flushPad
+	if c.padsLeft < flushPadCount {
+		wait *= flushPadSecondFactor
+	}
+	if quiet := time.Since(c.lastWrite); quiet < wait {
+		c.armPad(wait - quiet)
+		return
+	}
+	if _, err := c.ResponseWriter.Write(newFlushPadFrame()); err != nil {
+		return
+	}
+	c.ResponseWriter.(http.Flusher).Flush()
+	c.padsLeft--
+	if c.padsLeft > 0 {
+		c.armPad(c.flushPad*flushPadSecondFactor - time.Since(c.lastWrite))
+	}
 }
 
 func (c *httpServerConn) Close() error {
 	c.Lock()
 	defer c.Unlock()
+	if c.padTimer != nil {
+		c.padTimer.Stop()
+	}
 	return c.Instance.Close()
 }
 
