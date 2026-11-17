@@ -3,7 +3,6 @@ package splithttp
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptrace"
@@ -152,31 +151,15 @@ func (c *DefaultDialerClient) PostPacket(ctx context.Context, url string, sessio
 					h1UploadConn.retire()
 					continue
 				}
-
-				// TODO: Replace 0 here with a config value later
-				// Or add some other condition for optimization purposes
-				if h1UploadConn.UnreadedResponsesCount > 0 {
-					resp, err := http.ReadResponse(h1UploadConn.RespBufReader, req)
-					if err != nil {
-						c.closed.Store(true)
-						return fmt.Errorf("error while reading response: %s", err.Error())
-					}
-					io.Copy(io.Discard, resp.Body)
-					defer resp.Body.Close()
-					if resp.StatusCode != 200 {
-						return fmt.Errorf("got non-200 error response code: %d", resp.StatusCode)
-					}
-				}
 			}
 
-			_, err := h1UploadConn.Write(requestBuff.Bytes())
+			// the responses are drained by the connection itself, see h1_conn.go.
 			// if the write failed, we try another connection from
 			// the pool, until the write on a new connection fails.
 			// failed writes to a pooled connection are normal when
 			// the connection has been closed in the meantime.
+			err := h1UploadConn.write(requestBuff.Bytes())
 			if err == nil {
-				h1UploadConn.lastUsed = time.Now()
-				h1UploadConn.requests++
 				break
 			} else if newConnection {
 				return err

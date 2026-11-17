@@ -1,11 +1,14 @@
 package splithttp
 
 import (
+	"bufio"
 	"bytes"
 	"crypto/rand"
 	"io"
+	"net"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -126,18 +129,112 @@ func TestFlushPadHeaders(t *testing.T) {
 
 func TestH1ConnStale(t *testing.T) {
 	now := time.Now()
+	dead := &H1Conn{}
+	dead.dead.Store(true)
 	for _, tc := range []struct {
 		name string
-		conn H1Conn
+		conn *H1Conn
 		want bool
 	}{
-		{"new", H1Conn{}, false},
-		{"just used", H1Conn{requests: 1, lastUsed: now.Add(-time.Second)}, false},
-		{"idle", H1Conn{requests: 1, lastUsed: now.Add(-h1MaxIdle - time.Second)}, true},
-		{"many requests", H1Conn{requests: h1MaxRequests, lastUsed: now}, true},
+		{"new", &H1Conn{}, false},
+		{"just used", &H1Conn{requests: 1, lastUsed: now.Add(-time.Second)}, false},
+		{"idle", &H1Conn{requests: 1, lastUsed: now.Add(-h1MaxIdle - time.Second)}, true},
+		{"many requests", &H1Conn{requests: h1MaxRequests, lastUsed: now}, true},
+		{"closed by the other side", dead, true},
 	} {
 		if got := tc.conn.stale(now); got != tc.want {
 			t.Errorf("%s: stale = %v, want %v", tc.name, got, tc.want)
 		}
+	}
+}
+
+// h1Server answers every request on one TCP connection with a padded 200 (like an XHTTP server
+// behind a CDN), closes it after closeAfter requests (0: never), and reports what it served.
+func h1Server(t *testing.T, closeAfter int) (addr string, served chan int) {
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { ln.Close() })
+	served = make(chan int, 1)
+	go func() {
+		c, err := ln.Accept()
+		if err != nil {
+			return
+		}
+		defer c.Close()
+		br := bufio.NewReader(c)
+		n := 0
+		for closeAfter == 0 || n < closeAfter {
+			req, err := http.ReadRequest(br)
+			if err != nil {
+				break
+			}
+			io.Copy(io.Discard, req.Body)
+			n++
+			resp := "HTTP/1.1 200 OK\r\nX-Padding: " + strings.Repeat("X", 1000) + "\r\nContent-Length: 0\r\n\r\n"
+			if _, err := c.Write([]byte(resp)); err != nil {
+				break
+			}
+		}
+		served <- n
+	}()
+	return ln.Addr().String(), served
+}
+
+func pipelinedRequest(t *testing.T) []byte {
+	req, _ := http.NewRequest("GET", "http://example.com/path/session/0", nil)
+	var b bytes.Buffer
+	req.Write(&b)
+	return b.Bytes()
+}
+
+// Without reading the responses, a few thousand pipelined requests fill both socket buffers and
+// the writes block for good; the connection's own reader keeps them flowing.
+func TestH1ConnDrainsPipelinedResponses(t *testing.T) {
+	addr, _ := h1Server(t, 0)
+	raw, err := net.Dial("tcp", addr)
+	if err != nil {
+		t.Fatal(err)
+	}
+	c := NewH1Conn(raw)
+	defer c.Close()
+	req := pipelinedRequest(t)
+	deadline := time.Now().Add(20 * time.Second)
+	for i := 0; i < 5000; i++ {
+		if err := c.write(req); err != nil {
+			t.Fatalf("write %d: %v", i, err)
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("only %d writes in 20 s", i)
+		}
+	}
+	if c.stale(time.Now()) != true {
+		t.Fatal("a connection used for 5000 requests is not retired")
+	}
+}
+
+// When the other side closes the connection, it is marked dead without any write noticing.
+func TestH1ConnNoticesClose(t *testing.T) {
+	addr, served := h1Server(t, 3)
+	raw, err := net.Dial("tcp", addr)
+	if err != nil {
+		t.Fatal(err)
+	}
+	c := NewH1Conn(raw)
+	req := pipelinedRequest(t)
+	for i := 0; i < 3; i++ {
+		if err := c.write(req); err != nil {
+			t.Fatal(err)
+		}
+	}
+	<-served
+	for end := time.Now().Add(5 * time.Second); !c.dead.Load(); time.Sleep(10 * time.Millisecond) {
+		if time.Now().After(end) {
+			t.Fatal("closed connection not marked dead")
+		}
+	}
+	if !c.stale(time.Now()) {
+		t.Fatal("dead connection is not stale")
 	}
 }
